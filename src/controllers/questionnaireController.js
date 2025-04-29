@@ -78,9 +78,10 @@ export const submitAnswersCART = async (req, res) => {
     // 🔁 Bentuk jawaban 14 dengan aturan:
     // no 9 = no 1, no 13 = no 7, no 14 = no 4
     const extendedAnswers = [...converted];
-    extendedAnswers.splice(8, 0, converted[0]);  // no 9 (index 8) = no 1
-    extendedAnswers.splice(12, 0, converted[6]); // no 13 (index 12) = no 7
-    extendedAnswers.push(converted[2]);          // no 14 (akhir) = no 4
+    extendedAnswers.splice(8, 0, converted[0]);  // no 9 = no 1
+    extendedAnswers.splice(12, 0, converted[6]); // no 13  = no 7
+    extendedAnswers[11] = converted[1];          // no 12 = no 2
+    extendedAnswers.push(converted[2]);          // no 14  = no 4
 
     if (extendedAnswers.length !== 14) {
       return res

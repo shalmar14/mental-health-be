@@ -4,10 +4,9 @@ import os
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import StandardScaler
-from imblearn.over_sampling import SMOTE
-from sklearn.ensemble import RandomForestClassifier
+
 # Path dataset & model
-DATASET_PATH = "src/uploads/dataset.csv"
+DATASET_PATH = "src/uploads/depression_dataset.csv"
 MODEL_PATH = "src/models/depression_model.pkl"
 
 # Cek apakah file dataset ada sebelum membacanya
@@ -20,51 +19,55 @@ df = pd.read_csv(DATASET_PATH, sep=';')
 # Bersihkan nama kolom dari spasi
 df.columns = df.columns.str.strip()
 
-# Hapus karakter tak terlihat pada label
-df['DepressionState'] = df['DepressionState'].astype(str).str.strip()
-
+# Bersihkan label dari karakter tidak diinginkan
+df['DepressionState'] = (
+    df['DepressionState']
+    .astype(str)
+    .str.replace(r'^\d+\s*\\?t*', '', regex=True)  # Hapus angka+tab di depan
+    .str.replace(r'\s+', ' ', regex=True)          # Ganti spasi berlebih dengan satu spasi
+    .str.strip()                                   # Hapus spasi depan-belakang
+)
 
 # Tampilkan dataset setelah parsing
 print("Dataset setelah parsing:\n", df.head())
+
+# Tampilkan distribusi kelas sebelum filter
 print("Distribusi kelas sebelum pemrosesan:")
 print(df['DepressionState'].value_counts())
 
-# Cek apakah ada nilai kosong (NaN)
+# Hapus kelas yang jumlahnya cuma 1 (tidak bisa di-stratify)
+counts = df['DepressionState'].value_counts()
+df = df[df['DepressionState'].isin(counts[counts > 1].index)]
+
+# Tampilkan distribusi kelas setelah filter
+print("Distribusi kelas setelah filter:")
+print(df['DepressionState'].value_counts())
+
+# Hapus nilai kosong jika ada
 if df.isnull().values.any():
     df = df.dropna()
     print("Nilai NaN telah dihapus.")
 
-# Pisahkan fitur (X) dan label (y)
+# Pisahkan fitur dan label
 X = df.iloc[:, :-1]
 y = df.iloc[:, -1]
 
-# Bagi data menjadi training (80%) dan testing (20%)
+# Split data (stratify sudah aman karena semua kelas > 1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42, stratify=y)
-
-# Pastikan jumlah sampel cukup sebelum SMOTE
-
-#if len(y_train.value_counts()) > 1:  # SMOTE hanya bisa diterapkan jika ada lebih dari satu kelas
-#    smote = SMOTE(random_state=42, k_neighbors=min(3, X_train.shape[0] - 1))
-#    X_train, y_train = smote.fit_resample(X_train, y_train)
-#    print("Distribusi kelas setelah SMOTE:")
-#    print(y_train.value_counts())
-#else:
-#    print("SMOTE tidak diterapkan karena hanya ada satu kelas dalam data training.")
 
 # Normalisasi data
 scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 
-# Buat model Decision Tree dengan parameter yang lebih optimal
+# Buat model Decision Tree
 model = DecisionTreeClassifier(
     criterion="gini",
     random_state=42
 )
 model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
-print("Semua kolom dalam dataset:", df.columns.tolist())
-print("hasil y_pred", y_pred)
+
 # Evaluasi model
 accuracy = model.score(X_test, y_test)
 print(f"Akurasi model: {accuracy * 100:.2f}%")
