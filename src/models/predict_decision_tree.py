@@ -1,45 +1,50 @@
 import sys
 import json
-import pandas as pd
 import joblib
+import pandas as pd
 
-MODEL_PATH = "src/models/depression_model.pkl"
-DATASET_PATH = "src/uploads/dataset.csv"
+# 1. Ambil input dari Node.js
+if len(sys.argv) < 2:
+    print(json.dumps({"error": "No input provided"}))
+    sys.exit(1)
 
-try:
-    # Load model
-    print("sys.argv:", sys.argv, file=sys.stderr)
-    model = joblib.load(MODEL_PATH)
-    print("Model loaded successfully", file=sys.stderr)
+# 2. Parse jawaban user (dalam bentuk list angka)
+jawaban = json.loads(sys.argv[1])
 
-    # Ambil jawaban user dari Node.js
-    user_answers = json.loads(sys.argv[1])
-    print("Jawaban user:", user_answers, file=sys.stderr)
+# 3. Fitur sesuai urutan saat training
+feature_names = [
+    'Gender',
+    'self_employed',
+    'family_history',
+    'Days_Indoors',
+    'Growing_Stress',
+    'Changes_Habits',
+    'Mental_Health_History',
+    'Mood_Swings',
+    'Coping_Struggles',
+    'Work_Interest',
+    'Social_Weakness',
+    'mental_health_interview',
+    'care_options'
+]
 
-    # Load dataset untuk mendapatkan nama fitur
-    df = pd.read_csv(DATASET_PATH, sep=";")  # Pastikan delimiter sesuai dataset
+# 4. Load model
+model = joblib.load("src/models/cart_mental_health_model.pkl")
 
-    # Bersihkan spasi di nama kolom
-    df.columns = df.columns.str.strip()
+# 5. Prediksi
+df_input = pd.DataFrame([jawaban], columns=feature_names)
 
-    # Hanya ambil nama fitur (kolom kecuali DepressionState)
-    feature_names = df.columns[:-1]  # Ambil semua kolom kecuali kolom terakhir (DepressionState)
-    print("Feature names (cleaned):", list(feature_names), file=sys.stderr)  # Debugging
+hasil = model.predict(df_input)[0]
 
-    # Pastikan input user sesuai dengan jumlah fitur (14 kolom)
-    if len(user_answers) != len(feature_names):
-        raise ValueError(f"Jumlah jawaban tidak sesuai, harus {len(feature_names)} kolom.")
+# 6. Tentukan pesan
+if hasil == 1:
+    message = "It is recommended that you seek professional help for mental health." 
+else:
+    message = "No indication of need for treatment at this time" 
 
-    # Konversi input user ke DataFrame dengan nama fitur yang sesuai
-    user_df = pd.DataFrame([user_answers], columns=feature_names)
-    print("User DataFrame:", user_df, file=sys.stderr)  # Debugging
 
-    # Prediksi menggunakan model
-    prediction = model.predict(user_df)
-    print("Prediksi hasil:", prediction, file=sys.stderr)  # Debugging
-
-    # Kirim hasil diagnosa ke Node.js (langsung sebagai string, bukan integer)
-    print(json.dumps({"diagnosis": prediction[0]}))
-
-except Exception as e:
-    print(json.dumps({"error": str(e)}), file=sys.stderr)
+# 7. Output ke stdout sebagai JSON
+print(json.dumps({
+    "result": int(hasil),
+    "message": message
+}))

@@ -3,12 +3,9 @@ import cors from "cors";
 import router from "./src/routes/router.js";
 
 const app = express();
-app.use(express.json()); // HARUS ADA agar bisa membaca JSON dari body
+app.use(express.json()); 
 app.use(cors({
-    origin: "http://localhost:5173", // Sesuaikan dengan alamat frontend
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true, 
+    origin: "http://localhost:5173",  
 }));
 app.use("/api", router);
 

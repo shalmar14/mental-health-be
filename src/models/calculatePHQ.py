@@ -3,20 +3,20 @@ import json
 
 def calculate_phq9(scores):
     if len(scores) != 9 or not all(0 <= s <= 3 for s in scores):
-        raise ValueError("Harap masukkan 9 angka antara 0 sampai 3.")
+        raise ValueError("Please enter 9 numbers between 0 and 3.")
 
     total_score = sum(scores)
 
     if total_score <= 4:
-        category = "Minimal Atau Tidak Ada Depresi"
+        category = "None-minimal"
     elif total_score <= 9:
-        category = "Depresi Ringan"
+        category = "Mild"
     elif total_score <= 14:
-        category = "Depresi sedang"
+        category = "Moderate"
     elif total_score <= 19:
-        category = "Depresi Cukup Berat"
+        category = "Moderately severe"
     else:
-        category = "Depresi Berat"
+        category = "Severe"
 
     return total_score, category
 

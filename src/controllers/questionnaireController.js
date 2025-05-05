@@ -10,23 +10,20 @@ export const submitAnswersPHQ = async (req, res) => {
       return res.status(401).json({ message: "User tidak terautentikasi." });
     }
 
-    if (!Array.isArray(answers) || answers.length !== 11) {
+    if (!Array.isArray(answers) || answers.length !== 23) {
       return res.status(400).json({
-        message: "Jawaban tidak lengkap! Harus ada 11 jawaban."
+        message: "Jawaban tidak lengkap! Harus ada 23 jawaban."
       });
     }
 
-    // 🔁 Konversi teks ke angka
-    const numericAnswers = answers.map(mapAnswerToScorePHQ);
+    const phq9Answers = [...answers.slice(14, 23)];
+
+    const numericAnswers = phq9Answers.map(mapAnswerToScorePHQ);
 
     if (numericAnswers.includes(-1)) {
       return res.status(400).json({ message: "Terdapat jawaban tidak valid." });
     }
-    
-    // 💡 Ambil hanya 9 jawaban (indeks 0-7 dan indeks 10)
-    const phq9Answers = [...numericAnswers.slice(0, 8), numericAnswers[10]];
-    
-    // Simpan hanya phq9Answers ke DB
+
     const [existing] = await db.query(
       "SELECT id FROM questionnaire_answers_phq WHERE user_id = ?",
       [userId]
@@ -35,19 +32,19 @@ export const submitAnswersPHQ = async (req, res) => {
     if (existing.length > 0) {
       await db.query(
         "UPDATE questionnaire_answers_phq SET answers = ? WHERE user_id = ?",
-        [JSON.stringify(phq9Answers), userId]
+        [JSON.stringify(numericAnswers), userId]
       );
       return res.status(200).json({ message: "Jawaban berhasil diperbarui.", action: "update" });
     }
     
     await db.query(
       "INSERT INTO questionnaire_answers_phq (user_id, answers) VALUES (?, ?)",
-      [userId, JSON.stringify(phq9Answers)]
+      [userId, JSON.stringify(numericAnswers)]
     );
     
     res.status(200).json({ message: "Jawaban berhasil disimpan.", action: "insert" });
   } catch (error) {
-    console.error("❌ Error saat menyimpan kuisioner:", error.message);
+    console.error("Error saat menyimpan kuisioner:", error.message);
     res.status(500).json({ message: "Terjadi kesalahan di server.", error: error.message });
   }
 };
@@ -61,62 +58,87 @@ export const submitAnswersCART = async (req, res) => {
       return res.status(401).json({ message: "User tidak terautentikasi." });
     }
 
-    if (!Array.isArray(answers) || answers.length !== 11) {
+    if (!Array.isArray(answers) || answers.length !== 23) {
       return res.status(400).json({
-        message: "Jawaban tidak lengkap! Harus ada 11 jawaban.",
+        message: "Jawaban tidak lengkap! Harus ada 23 jawaban.",
       });
     }
 
-    // 🔁 Konversi ke skor (misal 6, 5, 3, 2)
-    const converted = answers.map(mapAnswerToScoreCART);
-    if (converted.includes(-1)) {
-      return res
-        .status(400)
-        .json({ message: "Terdapat jawaban tidak valid." });
+    const selectedAnswers = [answers[0], ...answers.slice(2, 14)];
+
+    if (selectedAnswers.length !== 13) {
+      return res.status(500).json({ message: "Gagal membentuk 13 jawaban." });
     }
 
-    // 🔁 Bentuk jawaban 14 dengan aturan:
-    // no 9 = no 1, no 13 = no 7, no 14 = no 4
-    const extendedAnswers = [...converted];
-    extendedAnswers.splice(8, 0, converted[0]);  // no 9 = no 1
-    extendedAnswers.splice(12, 0, converted[6]); // no 13  = no 7
-    extendedAnswers[11] = converted[1];          // no 12 = no 2
-    extendedAnswers.push(converted[2]);          // no 14  = no 4
+    const mappedAnswers = mapAnswerToScoreCART(selectedAnswers);
 
-    if (extendedAnswers.length !== 14) {
-      return res
-        .status(500)
-        .json({ message: "Gagal membentuk 14 jawaban." });
-    }
-
-    // Cek apakah user sudah pernah mengisi sebelumnya
     const [existing] = await db.query(
       "SELECT id FROM questionnaire_answers_cart WHERE user_id = ?",
       [userId]
     );
 
     if (existing.length > 0) {
-      // Update jika sudah ada
       await db.query(
         "UPDATE questionnaire_answers_cart SET answers = ? WHERE user_id = ?",
-        [JSON.stringify(extendedAnswers), userId]
+        [JSON.stringify(mappedAnswers), userId]
       );
     } else {
-      // Insert jika belum ada
       await db.query(
         "INSERT INTO questionnaire_answers_cart (user_id, answers) VALUES (?, ?)",
-        [userId, JSON.stringify(extendedAnswers)]
+        [userId, JSON.stringify(mappedAnswers)]
       );
     }
 
     res.status(200).json({
-      message: "Jawaban 14 berhasil dikonversi dan disimpan (insert/update).",
-      answers: extendedAnswers,
+      message: "Jawaban berhasil disimpan dalam bentuk angka (insert/update).",
+      originalAnswers: selectedAnswers,
+      mappedAnswers: mappedAnswers,
     });
+    
   } catch (err) {
     console.error("Error:", err.message);
     res.status(500).json({ message: "Terjadi kesalahan server." });
   }
 };
 
+export const addAge = async (req, res) => {
+  try {
+    const { age } = req.body;
+    const userId = req.user?.id;
 
+    await db.query(
+      "UPDATE users SET age = ? WHERE id = ?",
+      [age, userId]
+    );
+
+    res.status(200).json({
+      message: "Kolom Umur Berhasil Ditambahkan.",
+    });
+
+  } catch (err) {
+    console.log("Error:", err.message);
+    res.status(500).json({ message: "Terjadi kesalahan server." });
+  }
+  
+}
+
+export const addGender = async (req, res) => {
+  try {
+    const { gender } = req.body;
+    const userId = req.user?.id;
+
+    await db.query(
+      "UPDATE users SET gender = ? WHERE id = ?",
+      [gender, userId]
+    );
+
+    res.status(200).json({
+      message: "Kolom Jenis Kelamin Berhasil Ditambahkan.",
+    });
+
+  } catch (err) {
+    console.log("Error:", err.message);
+    res.status(500).json({ message: "Terjadi kesalahan server." });
+  }
+  
+}
